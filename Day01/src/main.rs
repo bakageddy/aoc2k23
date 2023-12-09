@@ -1,5 +1,8 @@
 use std::fs;
-use regex::Regex;
+use std::collections::HashMap;
+use std::io::Write;
+
+const NUMS: [&str; 18] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine","1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 fn main() {
     let file = "../tests/input.txt";
@@ -32,44 +35,81 @@ fn part1(filename: &str) -> i64 {
     sum
 }
 
-fn parse_nums(str: &str) -> char {
-    match str {
-        "zero" | "0"  => '0',
-        "one" | "1" => '1',
-        "two" | "2" => '2',
-        "three" | "3" => '3',
-        "four" | "4"=> '4',
-        "five" | "5" => '5',
-        "six" | "6" => '6',
-        "seven" | "7" => '7',
-        "eight" | "8" => '8',
-        "nine" | "9" => '9',
-        _ => '\0',
-    }
-}
-
-fn extract_keywords(line: &str) -> Vec<char> {
-    let pat = Regex::new(r"\d|zero|one|two|three|four|five|six|seven|eight|nine").unwrap();
-    let mut v = vec![];
-    for i in pat.find_iter(line) {
-        v.push(i.as_str());
-    }
-    v.into_iter().map(|c| {parse_nums(c)}).collect()
-}
-
-fn part2(filename: &str) -> i64 {
+fn part2(filename: &str) -> u64 {
     let contents = match fs::read_to_string(filename) {
         Ok(cont) => cont,
         Err(_) => panic!("Failed to read file!"),
     };
 
-    let mut sum = 0;
-    for i in contents.lines() {
-        let nums = extract_keywords(i);
-        let (first, last) = (nums[0], nums[nums.len() - 1]);
-        let num = format!("{}{}", first, last).parse::<i64>().unwrap();
-        println!("{}: {}", i, num);
+    let mut op = fs::File::create("./debug.txt").unwrap();
+
+    let mut sum: u64 = 0;
+    for line in contents.lines() {
+        let result = available_nums(line);
+        let (mut first, mut last) = (line.len(), 0);
+        let (mut x, mut y) = (0, 0);
+        for (key, val) in result {
+            if val.0 == val.1 {
+                if val.0.is_none() {continue;}
+                let index = val.0.unwrap();
+                if index <= first {
+                    first = index;
+                    x = parse_num(key);
+                }
+                if index >= last {
+                    last = index;
+                    y = parse_num(key);
+                }
+            } else {
+                if val.0.is_none() || val.1.is_none() {
+                    continue;
+                }
+                let index1 = val.0.unwrap();
+                let index2 = val.1.unwrap();
+                if index1 < first {
+                    first = index1;
+                    x = parse_num(key);
+                }
+                if index1 > last {
+                    last = index2;
+                    y = parse_num(key);
+                }
+                if index2 < first {
+                    first = index1;
+                    x = parse_num(key);
+                }
+                if index2 > last {
+                    last = index2;
+                    y = parse_num(key);
+                }
+            }
+        }
+        let num = x * 10 + y;
+        writeln!(op, "{line} : {num}");
         sum += num;
     }
     sum
+}
+
+fn parse_num(num: &str) -> u64 {
+    return match num {
+        "one" => 1,
+        "two" => 2,
+        "three" => 3,
+        "four" => 4,
+        "five" => 5,
+        "six" => 6,
+        "seven" => 7,
+        "eight" => 8,
+        "nine" => 9,
+        _ => num.parse::<u64>().unwrap()
+    }
+}
+
+fn available_nums(str: &str) -> HashMap<&str, (Option<usize>, Option<usize>)> {
+    let mut x = HashMap::new();
+    for i in NUMS {
+        x.insert(i, (str.find(i), str.rfind(i)));
+    }
+    x
 }
